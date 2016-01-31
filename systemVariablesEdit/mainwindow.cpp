@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <QString>
 #include <QPushButton>
+#include <QHeaderView>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -21,23 +22,12 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(ui->TextEditSearch, SIGNAL(textChanged()), this, SLOT(searchValueChanged()));
 
+    connect(ui->tableWidget,SIGNAL(cellClicked(int,int)),this, SLOT(cellCklicked(int,int)));
 
-    //  m_Process.start("cmd.exe /C start set");
+    connect(ui->tableWidget->horizontalHeader(),SIGNAL(sectionClicked(int)),this,SLOT(headerClicked(int)));
+
     m_Process.start("cmd.exe" , QStringList() << "/C" << "set");
-    //  m_Process.start("cmd.exe" , QStringList() << "/C" << "help");
 
-
-
-    //qDebug() << "wait finished";
-
-    //   QByteArray response = m_Process.readAllStandardOutput();
-    //  qDebug() << QString(response);
-
-    //m_Process.waitForReadyRead();
-    //QByteArray stdOutput = m_Process.readAllStandardOutput();
-    //QByteArray response =  m_Process.readAll();
-
-    // qDebug() << QString(stdOutput);
 }
 
 MainWindow::~MainWindow()
@@ -50,11 +40,6 @@ MainWindow::~MainWindow()
 //receives the output from "set"-command --> receives the system variables and saves them
 void MainWindow::consoleOutput()
 {
-    //QByteArray response = m_Process.readAllStandardOutput();
-    // qDebug() << QString(response);
-
-    //  QString line = QString::fromLocal8Bit(m_Process.readAll());
-    //  qDebug() << QString(line);
 
     systemVariables currentVar;
     while(m_Process.canReadLine())
@@ -101,12 +86,14 @@ void MainWindow::consoleOutput()
     ui->tableWidget->setHorizontalHeaderItem(1, new QTableWidgetItem("Key"));
     ui->tableWidget->setHorizontalHeaderItem(2, new QTableWidgetItem("Value"));
 
+
     for (int i = 0; i < m_systemVariables.count(); ++i)
     {
-        QPushButton *newSetButton = new QPushButton("set" + QString::number(i));
-        ui->tableWidget->setCellWidget(i,0,newSetButton);
+//        QPushButton *newSetButton = new QPushButton("set value");
+//        newSetButton->setProperty("row", QVariant(i));
+//        ui->tableWidget->setCellWidget(i,0,newSetButton);
 
-        connect(newSetButton, SIGNAL(clicked()), this, SLOT(buttonCklicked()));
+//        connect(newSetButton, SIGNAL(clicked()), this, SLOT(buttonCklicked()));
 
         QTableWidgetItem *newKeyItem = new QTableWidgetItem(m_systemVariables.at(i).key);
         ui->tableWidget->setItem(i,1,newKeyItem);
@@ -115,15 +102,23 @@ void MainWindow::consoleOutput()
         ui->tableWidget->setItem(i,2,newValueItem);
     }
 
+    //sort by names
+    m_sorting = Qt::AscendingOrder;
+    ui->tableWidget->sortByColumn(1,(Qt::SortOrder)m_sorting);
 
+    //after sorting add the buttons
+    for (int i = 0; i < m_systemVariables.count(); ++i)
+    {
+        QPushButton *newSetButton = new QPushButton("set value");
+        newSetButton->setProperty("row", QVariant(i));
+        ui->tableWidget->setCellWidget(i,0,newSetButton);
+
+        connect(newSetButton, SIGNAL(clicked()), this, SLOT(buttonCklicked()));
+    }
+    //resize the table to the contents
     ui->tableWidget->horizontalHeader()->setStretchLastSection(true);
     ui->tableWidget->resizeColumnsToContents();
-
-
     ui->tableWidget->resizeRowsToContents();
-
-
-    connect(ui->tableWidget, SIGNAL(cellClicked(int,int)), this, SLOT(cellCklicked(int,int)));
 
 }
 
@@ -160,6 +155,26 @@ void MainWindow::cellCklicked(int row, int col)
     ui->tableWidget->verticalHeader()->setSectionResizeMode(row,QHeaderView::ResizeToContents);
 }
 
+void MainWindow::headerClicked(int col)
+{
+     qDebug() << "header clicked row:"  "col:" << col;
+
+     //chenge the sort order
+     //TODO: to use this we have to change the row-property of the button.
+     //-->after sorting they don't correspond to the current rows
+
+//     if(m_sorting == Qt::AscendingOrder)
+//     {
+//         m_sorting = Qt::DescendingOrder;
+//     }
+//     else
+//     {
+//        m_sorting = Qt::AscendingOrder ;
+//     }
+
+//     ui->tableWidget->sortByColumn(1,(Qt::SortOrder)m_sorting);
+}
+
 void MainWindow::buttonCklicked()
 {
     //reconnect the signal to new slot for receiving the "setx" command output
@@ -168,15 +183,20 @@ void MainWindow::buttonCklicked()
 
     QPushButton* button = qobject_cast<QPushButton*>(sender());
 
-    qDebug() <<"button clicked" << button->text();
+    int currentRow = button->property("row").toInt();
 
-    QString buttonText = button->text();
-    QStringList split = buttonText.split("set");
-
-    QString currentKey = ui->tableWidget->item(split.at(1).toInt(),1)->text();
-    QString currentValue = ui->tableWidget->item(split.at(1).toInt(),2)->text().simplified();
+    qDebug() <<"button clicked" <<currentRow;
 
 
+        //qDebug() <<"button clicked" << button->text();
+//    QString buttonText = button->text();
+//    QStringList split = buttonText.split("set");
+
+   // QString currentKey = ui->tableWidget->item(split.at(1).toInt(),1)->text();
+    //QString currentValue = ui->tableWidget->item(split.at(1).toInt(),2)->text().simplified();
+
+    QString currentKey = ui->tableWidget->item(currentRow,1)->text();
+    QString currentValue = ui->tableWidget->item(currentRow,2)->text().simplified();
 
     QString prefix;
 
@@ -190,7 +210,14 @@ void MainWindow::buttonCklicked()
 
         prefix = "/m ";
     }
-    m_Process.start("cmd.exe" , QStringList() << "/C" << "setx " + prefix + currentKey + " " + currentValue);
+    //QStringList commandList =QStringList() << "/C" << "setx " + prefix + currentKey + " \"" + currentValue + "\" ";
+
+    QStringList commandList =QStringList() << "/C" << "setx " + prefix + currentKey + " \"" + currentValue + "\" ";
+
+
+    qDebug() << "commandList" << commandList;
+
+    m_Process.start("cmd.exe " , commandList);
 
     //m_Process.start("cmd.exe" , QStringList() << "/C" << "setx /m " + currentKey + " " + currentValue);
 

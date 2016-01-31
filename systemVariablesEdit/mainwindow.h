@@ -29,12 +29,15 @@ private:
     QProcess m_Process;
     QList<systemVariables> m_systemVariables;
 
+    int m_sorting;
+
 private slots:
 
    void consoleOutput();
    void consoleOutput2();
    void consoleErrOutput();
    void cellCklicked(int row, int col);
+   void headerClicked(int col);
    void buttonCklicked();
 
    void searchValueChanged();
