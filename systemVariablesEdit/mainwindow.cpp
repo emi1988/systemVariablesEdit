@@ -130,8 +130,12 @@ void MainWindow::consoleOutput2()
     QString responseString = QString(response).simplified();
     qDebug() << QString(responseString).simplified();
 
-    ui->textEditOutput->setTextColor(QColor(0,200,0));
-    ui->textEditOutput->setText(responseString);
+    //ignore empty responses
+    if(responseString.compare("") != 0)
+    {
+        ui->textEditOutput->setTextColor(QColor(0,200,0));
+        ui->textEditOutput->setText(responseString);
+    }
 }
 
 void MainWindow::consoleErrOutput()
@@ -175,6 +179,7 @@ void MainWindow::headerClicked(int col)
 //     ui->tableWidget->sortByColumn(1,(Qt::SortOrder)m_sorting);
 }
 
+//one of the set-buttons was clicked
 void MainWindow::buttonCklicked()
 {
     //reconnect the signal to new slot for receiving the "setx" command output
@@ -196,7 +201,7 @@ void MainWindow::buttonCklicked()
     //QString currentValue = ui->tableWidget->item(split.at(1).toInt(),2)->text().simplified();
 
     QString currentKey = ui->tableWidget->item(currentRow,1)->text();
-    QString currentValue =  " \" " + ui->tableWidget->item(currentRow,2)->text().simplified()+ " \" ";
+    QString currentValue = ui->tableWidget->item(currentRow,2)->text().simplified();
 
     QString prefix;
 
@@ -212,14 +217,31 @@ void MainWindow::buttonCklicked()
     }
     //QStringList commandList =QStringList() << "/C" << "setx " + prefix + currentKey + " \"" + currentValue + "\" ";
 
-    QStringList commandList =QStringList() << "/C" << "setx "  << prefix << currentKey << currentValue;
+   // QStringList commandList =QStringList() << "/C" << "setx "  << prefix << currentKey << currentValue;
+
+    QStringList commandList =QStringList() << "cmd.exe" << "/C" << "setx " + prefix + currentKey + " \"" + currentValue + "\" ";
+
+    QString commandString;
+
+    commandString = commandList.join(" ");
+    qDebug() << "commandString: " << commandString;
+
+    if(commandString.length() >1000)
+    {
+        QString testString= "halloIchHeißeEmanuelHalberstadt";
+
+        QString part =  testString.mid(0,10);
+        QString part2 =  testString.mid(10,10);
+    }
+    else
+    {
 
 
-    qDebug() << "commandList" << commandList;
+        m_Process.start(commandString);
+    }
 
-    m_Process.start("cmd.exe" , commandList);
+   // m_Process.start("cmd.exe" , commandList);
 
-    //m_Process.start("cmd.exe" , QStringList() << "/C" << "setx /m " + currentKey + " " + currentValue);
 
 }
 
@@ -252,10 +274,10 @@ void MainWindow::searchValueChanged()
     }
     for (int i = 0; i < systemVariablesSearched.count(); ++i)
     {
-        QPushButton *newSetButton = new QPushButton("set" + QString::number(i));
-        ui->tableWidget->setCellWidget(i,0,newSetButton);
+//        QPushButton *newSetButton = new QPushButton("set" + QString::number(i));
+//        ui->tableWidget->setCellWidget(i,0,newSetButton);
 
-        connect(newSetButton, SIGNAL(clicked()), this, SLOT(buttonCklicked()));
+//        connect(newSetButton, SIGNAL(clicked()), this, SLOT(buttonCklicked()));
 
         QTableWidgetItem *newKeyItem = new QTableWidgetItem(systemVariablesSearched.at(i).key);
         ui->tableWidget->setItem(i,1,newKeyItem);
@@ -264,9 +286,62 @@ void MainWindow::searchValueChanged()
         ui->tableWidget->setItem(i,2,newValueItem);
     }
 
+    //sort by names
+    m_sorting = Qt::AscendingOrder;
+    ui->tableWidget->sortByColumn(1,(Qt::SortOrder)m_sorting);
+
+    //after sorting add the buttons
+    for (int i = 0; i < systemVariablesSearched.count(); ++i)
+    {
+        QPushButton *newSetButton = new QPushButton("set value");
+        newSetButton->setProperty("row", QVariant(i));
+        ui->tableWidget->setCellWidget(i,0,newSetButton);
+
+        connect(newSetButton, SIGNAL(clicked()), this, SLOT(buttonCklicked()));
+    }
+
+    //resize the table to the contents
+    ui->tableWidget->horizontalHeader()->setStretchLastSection(true);
+    ui->tableWidget->resizeColumnsToContents();
+    ui->tableWidget->resizeRowsToContents();
+
     //scroll to the top
     ui->tableWidget->scrollToTop();
 
 
+
+}
+
+void MainWindow::on_pushButtonSetNewValue_clicked()
+{
+
+    //reconnect the signal to new slot for receiving the "setx" command output
+    disconnect(&m_Process, SIGNAL(readyReadStandardOutput()), this, SLOT(consoleOutput()));
+    connect(&m_Process, SIGNAL(readyReadStandardOutput()), this, SLOT(consoleOutput2()));
+
+    QString currentKey = ui->TextEditNewKey->toPlainText();
+    QString currentValue = ui->TextEditNewValue->toPlainText();
+
+    QString prefix;
+
+    if(ui->checkBoxUserVar->isChecked())
+    {
+        prefix = " ";
+    }
+    else
+    {
+        //write value to the global-sys-variables
+
+        prefix = "/m ";
+    }
+
+    QStringList commandList =QStringList() << "cmd.exe" << "/C" << "setx " + prefix + currentKey + " \"" + currentValue + "\" ";
+
+    QString commandString;
+
+    commandString = commandList.join(" ");
+    qDebug() << "commandString for new Pair: " << commandString;
+
+    m_Process.start(commandString);
 
 }

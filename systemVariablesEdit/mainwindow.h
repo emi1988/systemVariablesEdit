@@ -41,6 +41,7 @@ private slots:
    void buttonCklicked();
 
    void searchValueChanged();
+   void on_pushButtonSetNewValue_clicked();
 };
 
 #endif // MAINWINDOW_H
