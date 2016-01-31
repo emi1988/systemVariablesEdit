@@ -226,12 +226,16 @@ void MainWindow::buttonCklicked()
     commandString = commandList.join(" ");
     qDebug() << "commandString: " << commandString;
 
-    if(commandString.length() >1000)
+    if(commandString.length() >1020)
     {
-        QString testString= "halloIchHeißeEmanuelHalberstadt";
 
-        QString part =  testString.mid(0,10);
-        QString part2 =  testString.mid(10,10);
+        QString errorOutput;
+        errorOutput = "Can't write string which is longer than 1024 characters.";
+
+        ui->textEditOutput->setTextColor(QColor(255,0,0));
+        ui->textEditOutput->setText(errorOutput);
+
+
     }
     else
     {
@@ -342,6 +346,22 @@ void MainWindow::on_pushButtonSetNewValue_clicked()
     commandString = commandList.join(" ");
     qDebug() << "commandString for new Pair: " << commandString;
 
-    m_Process.start(commandString);
+    if(commandString.length() >1020)
+    {
+
+        QString errorOutput;
+        errorOutput = "Can't write string which is longer than 1024 characters.";
+
+        ui->textEditOutput->setTextColor(QColor(255,0,0));
+        ui->textEditOutput->setText(errorOutput);
+    }
+    else
+    {
+
+
+        m_Process.start(commandString);
+    }
+
+
 
 }
