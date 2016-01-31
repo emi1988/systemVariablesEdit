@@ -196,7 +196,7 @@ void MainWindow::buttonCklicked()
     //QString currentValue = ui->tableWidget->item(split.at(1).toInt(),2)->text().simplified();
 
     QString currentKey = ui->tableWidget->item(currentRow,1)->text();
-    QString currentValue = ui->tableWidget->item(currentRow,2)->text().simplified();
+    QString currentValue =  " \" " + ui->tableWidget->item(currentRow,2)->text().simplified()+ " \" ";
 
     QString prefix;
 
@@ -212,12 +212,12 @@ void MainWindow::buttonCklicked()
     }
     //QStringList commandList =QStringList() << "/C" << "setx " + prefix + currentKey + " \"" + currentValue + "\" ";
 
-    QStringList commandList =QStringList() << "/C" << "setx " + prefix + currentKey + " \"" + currentValue + "\" ";
+    QStringList commandList =QStringList() << "/C" << "setx "  << prefix << currentKey << currentValue;
 
 
     qDebug() << "commandList" << commandList;
 
-    m_Process.start("cmd.exe " , commandList);
+    m_Process.start("cmd.exe" , commandList);
 
     //m_Process.start("cmd.exe" , QStringList() << "/C" << "setx /m " + currentKey + " " + currentValue);
 
