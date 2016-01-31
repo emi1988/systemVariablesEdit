@@ -32,8 +32,12 @@ private:
 private slots:
 
    void consoleOutput();
+   void consoleOutput2();
+   void consoleErrOutput();
    void cellCklicked(int row, int col);
    void buttonCklicked();
+
+   void searchValueChanged();
 };
 
 #endif // MAINWINDOW_H

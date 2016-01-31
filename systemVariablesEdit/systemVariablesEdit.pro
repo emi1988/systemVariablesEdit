@@ -18,3 +18,10 @@ SOURCES += main.cpp\
 HEADERS  += mainwindow.h
 
 FORMS    += mainwindow.ui
+
+#DISTFILES += \
+ #   sysVar.rc
+
+#RC_FILE = sysVar.rc
+
+

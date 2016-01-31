@@ -17,25 +17,27 @@ MainWindow::MainWindow(QWidget *parent) :
 
     connect(&m_Process, SIGNAL(readyReadStandardOutput()), this, SLOT(consoleOutput()));
 
-   // connect(&m_Process, SIGNAL(readyReadStandardOutput()), this, SLOT(consoleOutput()));
+    connect(&m_Process, SIGNAL(readyReadStandardError()), this, SLOT(consoleErrOutput()));
+
+    connect(ui->TextEditSearch, SIGNAL(textChanged()), this, SLOT(searchValueChanged()));
 
 
-  //  m_Process.start("cmd.exe /C start set");
+    //  m_Process.start("cmd.exe /C start set");
     m_Process.start("cmd.exe" , QStringList() << "/C" << "set");
-  //  m_Process.start("cmd.exe" , QStringList() << "/C" << "help");
+    //  m_Process.start("cmd.exe" , QStringList() << "/C" << "help");
 
 
 
     //qDebug() << "wait finished";
 
- //   QByteArray response = m_Process.readAllStandardOutput();
-  //  qDebug() << QString(response);
+    //   QByteArray response = m_Process.readAllStandardOutput();
+    //  qDebug() << QString(response);
 
     //m_Process.waitForReadyRead();
     //QByteArray stdOutput = m_Process.readAllStandardOutput();
     //QByteArray response =  m_Process.readAll();
 
- // qDebug() << QString(stdOutput);
+    // qDebug() << QString(stdOutput);
 }
 
 MainWindow::~MainWindow()
@@ -44,13 +46,15 @@ MainWindow::~MainWindow()
     m_Process.close();
 }
 
+
+//receives the output from "set"-command --> receives the system variables and saves them
 void MainWindow::consoleOutput()
 {
     //QByteArray response = m_Process.readAllStandardOutput();
-   // qDebug() << QString(response);
+    // qDebug() << QString(response);
 
-  //  QString line = QString::fromLocal8Bit(m_Process.readAll());
-  //  qDebug() << QString(line);
+    //  QString line = QString::fromLocal8Bit(m_Process.readAll());
+    //  qDebug() << QString(line);
 
     systemVariables currentVar;
     while(m_Process.canReadLine())
@@ -61,9 +65,29 @@ void MainWindow::consoleOutput()
         QString lineString = QString(line);
 
 
-        QStringList splitedSysVar = lineString.split("=");
-        currentVar.key = splitedSysVar.at(0);
-        currentVar.value = splitedSysVar.at(1);
+        QStringList splittedSysVar = lineString.split("=");
+        currentVar.key = splittedSysVar.at(0);
+        currentVar.value = splittedSysVar.at(1);
+
+        //check if the value has ";" -> each should appear in a new line
+        QStringList splittedValues = currentVar.value.simplified().split(";",QString::SkipEmptyParts);
+
+        QString editedValue;
+        if(splittedValues.count() == 1)
+        {
+            editedValue = currentVar.value;
+        }
+        else
+        {
+            for (int i = 0; i < splittedValues.count(); ++i)
+            {
+                editedValue.append(splittedValues.at(i) + ";\n");
+            }
+
+        }
+
+        currentVar.value = editedValue;
+
         m_systemVariables.append(currentVar);
 
     }
@@ -72,8 +96,13 @@ void MainWindow::consoleOutput()
     ui->tableWidget->setColumnCount(3);
     ui->tableWidget->setRowCount(m_systemVariables.count());
 
+    //set table headers
+    ui->tableWidget->setHorizontalHeaderItem(0, new QTableWidgetItem("Edit"));
+    ui->tableWidget->setHorizontalHeaderItem(1, new QTableWidgetItem("Key"));
+    ui->tableWidget->setHorizontalHeaderItem(2, new QTableWidgetItem("Value"));
+
     for (int i = 0; i < m_systemVariables.count(); ++i)
-    {        
+    {
         QPushButton *newSetButton = new QPushButton("set" + QString::number(i));
         ui->tableWidget->setCellWidget(i,0,newSetButton);
 
@@ -90,7 +119,35 @@ void MainWindow::consoleOutput()
     ui->tableWidget->horizontalHeader()->setStretchLastSection(true);
     ui->tableWidget->resizeColumnsToContents();
 
+
+    ui->tableWidget->resizeRowsToContents();
+
+
     connect(ui->tableWidget, SIGNAL(cellClicked(int,int)), this, SLOT(cellCklicked(int,int)));
+
+}
+
+//receives the data from the "setx"-command output
+void MainWindow::consoleOutput2()
+{
+
+    QByteArray response = m_Process.readAllStandardOutput();
+    QString responseString = QString(response).simplified();
+    qDebug() << QString(responseString).simplified();
+
+    ui->textEditOutput->setTextColor(QColor(0,200,0));
+    ui->textEditOutput->setText(responseString);
+}
+
+void MainWindow::consoleErrOutput()
+{
+
+    QByteArray response = m_Process.readAllStandardError();
+    QString responseString = QString(response).simplified();
+    qDebug() << QString(responseString).simplified();
+
+    ui->textEditOutput->setTextColor(QColor(255,0,0));
+    ui->textEditOutput->setText(responseString);
 
 }
 
@@ -98,10 +155,17 @@ void MainWindow::cellCklicked(int row, int col)
 {
 
     qDebug() << "cell clicked row:" <<row << "col:" << col;
+
+    //resize the clicked row to the current content
+    ui->tableWidget->verticalHeader()->setSectionResizeMode(row,QHeaderView::ResizeToContents);
 }
 
 void MainWindow::buttonCklicked()
 {
+    //reconnect the signal to new slot for receiving the "setx" command output
+    disconnect(&m_Process, SIGNAL(readyReadStandardOutput()), this, SLOT(consoleOutput()));
+    connect(&m_Process, SIGNAL(readyReadStandardOutput()), this, SLOT(consoleOutput2()));
+
     QPushButton* button = qobject_cast<QPushButton*>(sender());
 
     qDebug() <<"button clicked" << button->text();
@@ -110,8 +174,72 @@ void MainWindow::buttonCklicked()
     QStringList split = buttonText.split("set");
 
     QString currentKey = ui->tableWidget->item(split.at(1).toInt(),1)->text();
-    QString currentValue = ui->tableWidget->item(split.at(1).toInt(),2)->text();
+    QString currentValue = ui->tableWidget->item(split.at(1).toInt(),2)->text().simplified();
 
-    m_Process.start("cmd.exe" , QStringList() << "/C" << "setx /m " + currentKey + " " + currentValue);
+
+
+    QString prefix;
+
+    if(ui->checkBoxUserVar->isChecked())
+    {
+        prefix = " ";
+    }
+    else
+    {
+        //write value to the global-sys-variables
+
+        prefix = "/m ";
+    }
+    m_Process.start("cmd.exe" , QStringList() << "/C" << "setx " + prefix + currentKey + " " + currentValue);
+
+    //m_Process.start("cmd.exe" , QStringList() << "/C" << "setx /m " + currentKey + " " + currentValue);
+
+}
+
+void MainWindow::searchValueChanged()
+{
+
+    ui->tableWidget->clearContents();
+
+    QList<systemVariables> systemVariablesSearched;
+
+    //first check if the search field is empty
+    if(ui->TextEditSearch->toPlainText().compare("") == 0)
+    {
+        //use all SystemVariables
+        systemVariablesSearched = m_systemVariables;
+    }
+    else
+    {
+        //check the systemvariables for the searched text
+        for (int i = 0; i < m_systemVariables.count(); ++i)
+        {
+
+            //just use the systemvariables which contain the searched text
+            if(m_systemVariables.at(i).key.contains(ui->TextEditSearch->toPlainText(),Qt::CaseInsensitive))
+            {
+                systemVariablesSearched.append(m_systemVariables.at(i));
+            }
+        }
+
+    }
+    for (int i = 0; i < systemVariablesSearched.count(); ++i)
+    {
+        QPushButton *newSetButton = new QPushButton("set" + QString::number(i));
+        ui->tableWidget->setCellWidget(i,0,newSetButton);
+
+        connect(newSetButton, SIGNAL(clicked()), this, SLOT(buttonCklicked()));
+
+        QTableWidgetItem *newKeyItem = new QTableWidgetItem(systemVariablesSearched.at(i).key);
+        ui->tableWidget->setItem(i,1,newKeyItem);
+
+        QTableWidgetItem *newValueItem = new QTableWidgetItem(systemVariablesSearched.at(i).value);
+        ui->tableWidget->setItem(i,2,newValueItem);
+    }
+
+    //scroll to the top
+    ui->tableWidget->scrollToTop();
+
+
 
 }
